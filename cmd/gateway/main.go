@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/lei/simple-ci/internal/api"
 	"github.com/lei/simple-ci/internal/config"
 	"github.com/lei/simple-ci/internal/provider/concourse"
@@ -24,8 +25,11 @@ func main() {
 }
 
 func run() error {
-	// Load gateway configuration
-	cfg, err := config.Load("configs/gateway.yaml")
+	// Load .env file (ignore error if file doesn't exist - env vars might be set externally)
+	_ = godotenv.Load()
+
+	// Load gateway configuration from environment variables
+	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
@@ -35,7 +39,7 @@ func run() error {
 	appLogger.Info("starting simple-ci gateway")
 
 	// Load job definitions
-	jobs, err := config.LoadJobs("configs/jobs.yaml")
+	jobs, err := config.LoadJobs(cfg.JobsFile)
 	if err != nil {
 		return fmt.Errorf("load jobs: %w", err)
 	}

@@ -23,7 +23,8 @@ WORKDIR /app
 # Copy binary and configs
 COPY --from=builder /build/gateway .
 COPY --from=builder /build/configs ./configs
+COPY --from=builder /build/.env.example .
 
-EXPOSE 8080
+EXPOSE 8081
 
 CMD ["./gateway"]

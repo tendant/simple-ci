@@ -61,13 +61,32 @@ go mod download
 
 3. Configure the gateway:
 
-Edit `configs/gateway.yaml`:
-```yaml
-concourse:
-  url: "http://localhost:9001"
-  team: "main"
-  username: "admin"
-  password: "admin"
+Create a `.env` file from the example:
+```bash
+cp .env.example .env
+```
+
+Edit `.env` to match your Concourse setup:
+```bash
+# Server
+SERVER_PORT=8081
+
+# Authentication
+API_KEYS=local-dev:dev-key-12345,ci-dashboard:dashboard-key-67890
+
+# Concourse CI
+CONCOURSE_URL=http://localhost:9001
+CONCOURSE_TEAM=main
+CONCOURSE_USERNAME=admin
+CONCOURSE_PASSWORD=admin
+CONCOURSE_BEARER_TOKEN=your-token-here
+
+# Logging
+LOG_LEVEL=info
+LOG_FORMAT=json
+
+# Jobs Configuration
+JOBS_FILE=configs/jobs.yaml
 ```
 
 Edit `configs/jobs.yaml` to match your Concourse pipelines:
@@ -90,7 +109,7 @@ jobs:
 make run
 ```
 
-The gateway will start on port 8080.
+The gateway will start on port 8081 (configurable via SERVER_PORT in .env).
 
 ## API Endpoints
 
@@ -268,31 +287,36 @@ HTTP 204 No Content
 
 ## Configuration
 
-### Gateway Configuration (`configs/gateway.yaml`)
+### Gateway Configuration (`.env`)
 
-```yaml
-server:
-  port: 8080                  # HTTP server port
-  read_timeout: 30s           # Read timeout
-  write_timeout: 30s          # Write timeout
+Configuration is managed through environment variables. Create a `.env` file from `.env.example`:
 
-auth:
-  api_keys:
-    - name: "local-dev"       # Key name (for logging)
-      key: "dev-key-12345"    # API key value
-    - name: "ci-dashboard"
-      key: "dashboard-key-67890"
+```bash
+# Simple CI Gateway Configuration
 
-concourse:
-  url: "http://localhost:9001"      # Concourse URL
-  team: "main"                       # Concourse team
-  username: "admin"                  # Concourse username
-  password: "admin"                  # Concourse password
-  token_refresh_margin: 5m           # Token refresh margin
+# Server
+SERVER_PORT=8081                               # HTTP server port
+SERVER_READ_TIMEOUT=30s                        # Read timeout
+SERVER_WRITE_TIMEOUT=30s                       # Write timeout
 
-logging:
-  level: "info"               # Log level: debug, info, warn, error
-  format: "json"              # Log format: json or text
+# Authentication
+# Comma-separated list of name:key pairs
+API_KEYS=local-dev:dev-key-12345,ci-dashboard:dashboard-key-67890
+
+# Concourse CI
+CONCOURSE_URL=http://localhost:9001            # Concourse URL
+CONCOURSE_TEAM=main                            # Concourse team
+CONCOURSE_USERNAME=admin                       # Concourse username
+CONCOURSE_PASSWORD=admin                       # Concourse password
+CONCOURSE_BEARER_TOKEN=Te/3FtIKdzJpCWmlE9TYQ3QRHxnrtmFpAAAAAA  # Optional: Pre-configured token
+CONCOURSE_TOKEN_REFRESH_MARGIN=5m              # Token refresh margin
+
+# Logging
+LOG_LEVEL=info                                 # Log level: debug, info, warn, error
+LOG_FORMAT=json                                # Log format: json or text
+
+# Jobs Configuration
+JOBS_FILE=configs/jobs.yaml                    # Path to jobs definition file
 ```
 
 ### Jobs Configuration (`configs/jobs.yaml`)
@@ -364,7 +388,8 @@ make docker-run
 Or with custom configuration:
 
 ```bash
-docker run -p 8080:8080 \
+docker run -p 8081:8081 \
+  --env-file .env \
   -v $(PWD)/configs:/app/configs \
   simple-ci-gateway:latest
 ```
@@ -400,8 +425,9 @@ simple-ci/
 │   └── logger/
 │       └── logger.go                  # Structured logging
 └── configs/
-    ├── gateway.yaml                   # Gateway configuration
     └── jobs.yaml                      # Job definitions
+├── .env.example                       # Environment configuration template
+└── .env                               # Environment configuration (gitignored)
 ```
 
 ## Error Handling
@@ -430,13 +456,10 @@ Error responses include a JSON body:
 
 ## Security
 
-- **API Keys**: Configure API keys in `configs/gateway.yaml`
-- **Production**: Use environment variables for sensitive values:
-  ```yaml
-  concourse:
-    password: "${CONCOURSE_PASSWORD}"
-  ```
+- **API Keys**: Configure API keys in `.env` file (format: `API_KEYS=name:key,name2:key2`)
+- **Production**: Use environment variables for sensitive values (never commit `.env` to version control)
 - **HTTPS**: Deploy behind a reverse proxy (nginx, Caddy) with TLS
+- **Token Management**: Use CONCOURSE_BEARER_TOKEN for pre-configured tokens or automated refresh scripts
 
 ## Future Enhancements
 

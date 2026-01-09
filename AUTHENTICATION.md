@@ -93,8 +93,8 @@ fly -t local login -c http://localhost:9001 -u admin -p admin
 # Extract token
 TOKEN=$(grep -A 2 "local:" ~/.flyrc | grep "value:" | awk '{print $2}')
 
-# Update config
-sed -i.bak "s/bearer_token: .*/bearer_token: \"$TOKEN\"/" configs/gateway.yaml
+# Update .env file
+sed -i.bak "s/^CONCOURSE_BEARER_TOKEN=.*/CONCOURSE_BEARER_TOKEN=$TOKEN/" .env
 
 # Restart gateway
 pkill -f "go run ./cmd/gateway"
