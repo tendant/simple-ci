@@ -1,0 +1,22 @@
+server:
+  port: 8080
+  read_timeout: 30s
+  write_timeout: 30s
+
+auth:
+  api_keys:
+    - name: "local-dev"
+      key: "dev-key-12345"
+    - name: "ci-dashboard"
+      key: "dashboard-key-67890"
+
+concourse:
+  url: "http://localhost:9001"
+  team: "main"
+  username: "admin"
+  password: "admin"
+  token_refresh_margin: 5m
+
+logging:
+  level: "info"
+  format: "json"

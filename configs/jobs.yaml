@@ -1,0 +1,15 @@
+jobs:
+  - job_id: "job_example_hello"
+    project: "example"
+    display_name: "Hello World Job"
+    environment: "dev"
+    provider:
+      kind: "concourse"
+      ref:
+        team: "main"
+        pipeline: "example-pipeline"
+        job: "hello-job"
+
+  # Add more jobs here as needed
+  # Make sure to update the team, pipeline, and job names
+  # to match your actual Concourse setup
