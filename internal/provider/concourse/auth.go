@@ -14,10 +14,11 @@ import (
 
 // TokenManager handles Concourse authentication and token caching
 type TokenManager struct {
-	baseURL  string
-	team     string
-	username string
-	password string
+	baseURL     string
+	team        string
+	username    string
+	password    string
+	bearerToken string // Optional: pre-configured token
 
 	mu            sync.RWMutex
 	token         string
@@ -26,14 +27,23 @@ type TokenManager struct {
 }
 
 // NewTokenManager creates a new token manager
-func NewTokenManager(baseURL, team, username, password string, refreshMargin time.Duration) *TokenManager {
-	return &TokenManager{
+func NewTokenManager(baseURL, team, username, password, bearerToken string, refreshMargin time.Duration) *TokenManager {
+	tm := &TokenManager{
 		baseURL:       baseURL,
 		team:          team,
 		username:      username,
 		password:      password,
+		bearerToken:   bearerToken,
 		refreshMargin: refreshMargin,
 	}
+
+	// If bearer token is provided, use it and set expiry far in future
+	if bearerToken != "" {
+		tm.token = bearerToken
+		tm.tokenExpiry = time.Now().Add(365 * 24 * time.Hour) // 1 year (won't auto-refresh)
+	}
+
+	return tm
 }
 
 // TokenResponse represents the response from Concourse token endpoint
@@ -95,7 +105,7 @@ func (tm *TokenManager) fetchTokenFromConcourse(ctx context.Context) (*TokenResp
 	data.Set("grant_type", "password")
 	data.Set("username", tm.username)
 	data.Set("password", tm.password)
-	data.Set("scope", fmt.Sprintf("team:%s", tm.team))
+	data.Set("scope", "openid")
 
 	req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, strings.NewReader(data.Encode()))
 	if err != nil {

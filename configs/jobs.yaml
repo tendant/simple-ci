@@ -1,7 +1,8 @@
 jobs:
-  - job_id: "job_example_hello"
+  # Real jobs from Concourse pipeline: example-pipeline
+  - job_id: "job_hello"
     project: "example"
-    display_name: "Hello World Job"
+    display_name: "Hello Job"
     environment: "dev"
     provider:
       kind: "concourse"
@@ -10,6 +11,13 @@ jobs:
         pipeline: "example-pipeline"
         job: "hello-job"
 
-  # Add more jobs here as needed
-  # Make sure to update the team, pipeline, and job names
-  # to match your actual Concourse setup
+  - job_id: "job_tests"
+    project: "example"
+    display_name: "Test Job"
+    environment: "dev"
+    provider:
+      kind: "concourse"
+      ref:
+        team: "main"
+        pipeline: "example-pipeline"
+        job: "test-job"

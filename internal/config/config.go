@@ -40,6 +40,7 @@ type ConcourseConfig struct {
 	Team               string        `yaml:"team"`
 	Username           string        `yaml:"username"`
 	Password           string        `yaml:"password"`
+	BearerToken        string        `yaml:"bearer_token"`        // Optional: Use pre-configured token
 	TokenRefreshMargin time.Duration `yaml:"token_refresh_margin"`
 }
 

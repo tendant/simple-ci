@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8081
   read_timeout: 30s
   write_timeout: 30s
 
@@ -16,6 +16,9 @@ concourse:
   username: "admin"
   password: "admin"
   token_refresh_margin: 5m
+  # For now, use token from fly CLI (~/.flyrc)
+  # Run: grep -A 2 "local:" ~/.flyrc | grep "value:" | awk '{print $2}'
+  bearer_token: "Te/3FtIKdzJpCWmlE9TYQ3QRHxnrtmFpAAAAAA"
 
 logging:
   level: "info"

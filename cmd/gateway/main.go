@@ -47,6 +47,7 @@ func run() error {
 		Team:               cfg.Concourse.Team,
 		Username:           cfg.Concourse.Username,
 		Password:           cfg.Concourse.Password,
+		BearerToken:        cfg.Concourse.BearerToken,
 		TokenRefreshMargin: cfg.Concourse.TokenRefreshMargin,
 	}
 	provider, err := concourse.NewAdapter(providerCfg)

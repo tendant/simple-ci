@@ -24,6 +24,7 @@ type Config struct {
 	Team               string
 	Username           string
 	Password           string
+	BearerToken        string
 	TokenRefreshMargin time.Duration
 }
 
@@ -34,6 +35,7 @@ func NewAdapter(cfg *Config) (*Adapter, error) {
 		cfg.Team,
 		cfg.Username,
 		cfg.Password,
+		cfg.BearerToken,
 		cfg.TokenRefreshMargin,
 	)
 	client := NewClient(cfg.URL, tokenManager)
@@ -69,15 +71,15 @@ func (c *ConcourseRunRef) Kind() string {
 }
 
 func (c *ConcourseRunRef) ID() string {
-	// Format: team/pipeline/job/build_id
-	return fmt.Sprintf("%s/%s/%s/%d", c.Team, c.Pipeline, c.Job, c.BuildID)
+	// Format: team:pipeline:job:build_id (URL-safe)
+	return fmt.Sprintf("%s:%s:%s:%d", c.Team, c.Pipeline, c.Job, c.BuildID)
 }
 
 // ParseRunRef parses a run_id string back to ConcourseRunRef
 func ParseRunRef(runID string) (*ConcourseRunRef, error) {
-	parts := strings.Split(runID, "/")
+	parts := strings.Split(runID, ":")
 	if len(parts) != 4 {
-		return nil, fmt.Errorf("invalid run_id format, expected team/pipeline/job/build_id")
+		return nil, fmt.Errorf("invalid run_id format, expected team:pipeline:job:build_id")
 	}
 
 	buildID, err := strconv.Atoi(parts[3])
