@@ -92,6 +92,14 @@ func Load() (*Config, error) {
 	cfg.Concourse.Password = getEnv("CONCOURSE_PASSWORD", "")
 	cfg.Concourse.BearerToken = getEnv("CONCOURSE_BEARER_TOKEN", "")
 
+	// Validate authentication configuration
+	if cfg.Concourse.BearerToken == "" {
+		// If no bearer token, username and password are required
+		if cfg.Concourse.Username == "" || cfg.Concourse.Password == "" {
+			return nil, fmt.Errorf("either CONCOURSE_BEARER_TOKEN or both CONCOURSE_USERNAME and CONCOURSE_PASSWORD must be provided")
+		}
+	}
+
 	refreshMargin, err := getEnvDuration("CONCOURSE_TOKEN_REFRESH_MARGIN", "5m")
 	if err != nil {
 		return nil, fmt.Errorf("parse CONCOURSE_TOKEN_REFRESH_MARGIN: %w", err)
