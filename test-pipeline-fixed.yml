@@ -1,0 +1,48 @@
+---
+# Test pipeline for simple-ci with Concourse 7.x resource types
+resource_types:
+  - name: registry-image
+    type: registry-image
+    source:
+      repository: concourse/registry-image-resource
+      tag: latest
+
+jobs:
+  - name: hello-job
+    plan:
+      - task: say-hello
+        config:
+          platform: linux
+          image_resource:
+            type: registry-image
+            source:
+              repository: busybox
+          run:
+            path: sh
+            args:
+              - -c
+              - |
+                echo "Hello from Concourse!"
+                echo "Current time: $(date)"
+                sleep 5
+                echo "Job completed successfully!"
+
+  - name: test-job
+    plan:
+      - task: run-tests
+        config:
+          platform: linux
+          image_resource:
+            type: registry-image
+            source:
+              repository: busybox
+          run:
+            path: sh
+            args:
+              - -c
+              - |
+                echo "Running tests..."
+                echo "Test 1: PASS"
+                echo "Test 2: PASS"
+                echo "Test 3: PASS"
+                echo "All tests passed!"

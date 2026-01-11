@@ -1,23 +1,23 @@
 jobs:
-  # Real jobs from Concourse pipeline: example-pipeline
+  # Real jobs from Concourse pipeline: test-simple-ci
   - job_id: "job_hello"
-    project: "example"
+    project: "simple-ci"
     display_name: "Hello Job"
     environment: "dev"
     provider:
       kind: "concourse"
       ref:
         team: "main"
-        pipeline: "example-pipeline"
+        pipeline: "test-simple-ci"
         job: "hello-job"
 
   - job_id: "job_tests"
-    project: "example"
+    project: "simple-ci"
     display_name: "Test Job"
     environment: "dev"
     provider:
       kind: "concourse"
       ref:
         team: "main"
-        pipeline: "example-pipeline"
+        pipeline: "test-simple-ci"
         job: "test-job"
