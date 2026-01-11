@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/lei/simple-ci/pkg/logger"
 )
 
 // Client handles HTTP communication with Concourse ATC API
@@ -16,6 +18,7 @@ type Client struct {
 	baseURL      string
 	tokenManager *TokenManager
 	httpClient   *http.Client
+	logger       *logger.Logger
 }
 
 // Build represents a Concourse build
@@ -29,23 +32,30 @@ type Build struct {
 }
 
 // NewClient creates a new Concourse API client
-func NewClient(baseURL string, tokenManager *TokenManager) *Client {
+func NewClient(baseURL string, tokenManager *TokenManager, log *logger.Logger) *Client {
 	return &Client{
 		baseURL:      baseURL,
 		tokenManager: tokenManager,
 		httpClient:   &http.Client{Timeout: 30 * time.Second},
+		logger:       log,
 	}
 }
 
 // doRequest performs an authenticated HTTP request with automatic token refresh
 func (c *Client) doRequest(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
+	c.logger.Debug("provider: http request",
+		"method", method,
+		"path", path)
+
 	token, err := c.tokenManager.GetToken(ctx)
 	if err != nil {
+		c.logger.Error("provider: failed to get token", "error", err)
 		return nil, fmt.Errorf("get token: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
 	if err != nil {
+		c.logger.Error("provider: failed to create request", "error", err)
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 
@@ -56,21 +66,45 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		c.logger.Error("provider: http request failed",
+			"method", method,
+			"path", path,
+			"error", err)
 		return nil, err
 	}
+
+	c.logger.Debug("provider: http response",
+		"method", method,
+		"path", path,
+		"status", resp.StatusCode)
 
 	// If 401, invalidate token and retry once
 	if resp.StatusCode == http.StatusUnauthorized {
 		resp.Body.Close()
+		c.logger.Info("provider: received 401, invalidating token and retrying",
+			"method", method,
+			"path", path)
 		c.tokenManager.InvalidateToken()
 
 		token, err := c.tokenManager.GetToken(ctx)
 		if err != nil {
+			c.logger.Error("provider: failed to refresh token", "error", err)
 			return nil, fmt.Errorf("refresh token: %w", err)
 		}
 
 		req.Header.Set("Authorization", "Bearer "+token)
 		resp, err = c.httpClient.Do(req)
+		if err != nil {
+			c.logger.Error("provider: retry request failed",
+				"method", method,
+				"path", path,
+				"error", err)
+		} else {
+			c.logger.Info("provider: retry request succeeded",
+				"method", method,
+				"path", path,
+				"status", resp.StatusCode)
+		}
 	}
 
 	return resp, err

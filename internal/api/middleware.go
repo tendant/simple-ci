@@ -72,7 +72,7 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 		}
 
 		// Add key name to context for logging/audit
-		ctx := context.WithValue(r.Context(), contextKey("api_key_name"), name)
+		ctx := context.WithValue(r.Context(), contextKeyAPIKeyName, name)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -104,8 +104,8 @@ func (m *LoggingMiddleware) Handler(next http.Handler) http.Handler {
 		)
 
 		// Add logger and request ID to context
-		ctx := context.WithValue(r.Context(), contextKey("logger"), reqLogger)
-		ctx = context.WithValue(ctx, contextKey("request_id"), requestID)
+		ctx := context.WithValue(r.Context(), contextKeyLogger, reqLogger)
+		ctx = context.WithValue(ctx, contextKeyRequestID, requestID)
 
 		// Wrap response writer to capture status and bytes
 		wrapped := &responseWriter{ResponseWriter: w, statusCode: 200}

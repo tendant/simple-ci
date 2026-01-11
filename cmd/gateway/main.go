@@ -54,14 +54,14 @@ func run() error {
 		BearerToken:        cfg.Concourse.BearerToken,
 		TokenRefreshMargin: cfg.Concourse.TokenRefreshMargin,
 	}
-	provider, err := concourse.NewAdapter(providerCfg)
+	provider, err := concourse.NewAdapter(providerCfg, appLogger)
 	if err != nil {
 		return fmt.Errorf("initialize provider: %w", err)
 	}
 	appLogger.Info("initialized concourse provider", "url", cfg.Concourse.URL, "team", cfg.Concourse.Team)
 
 	// Initialize service layer
-	svc := service.NewService(jobs, provider)
+	svc := service.NewService(jobs, provider, appLogger)
 
 	// Initialize API layer
 	handlers := api.NewHandlers(svc)

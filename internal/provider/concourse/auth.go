@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/lei/simple-ci/pkg/logger"
 )
 
 // TokenManager handles Concourse authentication and token caching
@@ -19,6 +21,7 @@ type TokenManager struct {
 	username    string
 	password    string
 	bearerToken string // Optional: pre-configured token
+	logger      *logger.Logger
 
 	mu            sync.RWMutex
 	token         string
@@ -27,7 +30,7 @@ type TokenManager struct {
 }
 
 // NewTokenManager creates a new token manager
-func NewTokenManager(baseURL, team, username, password, bearerToken string, refreshMargin time.Duration) *TokenManager {
+func NewTokenManager(baseURL, team, username, password, bearerToken string, refreshMargin time.Duration, log *logger.Logger) *TokenManager {
 	tm := &TokenManager{
 		baseURL:       baseURL,
 		team:          team,
@@ -35,10 +38,12 @@ func NewTokenManager(baseURL, team, username, password, bearerToken string, refr
 		password:      password,
 		bearerToken:   bearerToken,
 		refreshMargin: refreshMargin,
+		logger:        log,
 	}
 
 	// If bearer token is provided, use it and set expiry far in future
 	if bearerToken != "" {
+		log.Debug("provider: using pre-configured bearer token")
 		tm.token = bearerToken
 		tm.tokenExpiry = time.Now().Add(365 * 24 * time.Hour) // 1 year (won't auto-refresh)
 	}
@@ -59,11 +64,13 @@ func (tm *TokenManager) GetToken(ctx context.Context) (string, error) {
 	if tm.token != "" && time.Now().Before(tm.tokenExpiry.Add(-tm.refreshMargin)) {
 		token := tm.token
 		tm.mu.RUnlock()
+		tm.logger.Debug("provider: token cache hit")
 		return token, nil
 	}
 	tm.mu.RUnlock()
 
 	// Need to refresh
+	tm.logger.Debug("provider: token cache miss, refreshing")
 	return tm.refreshToken(ctx)
 }
 
@@ -71,6 +78,7 @@ func (tm *TokenManager) GetToken(ctx context.Context) (string, error) {
 func (tm *TokenManager) InvalidateToken() {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
+	tm.logger.Info("provider: invalidating token")
 	tm.token = ""
 	tm.tokenExpiry = time.Time{}
 }
@@ -82,17 +90,24 @@ func (tm *TokenManager) refreshToken(ctx context.Context) (string, error) {
 
 	// Double-check after acquiring write lock
 	if tm.token != "" && time.Now().Before(tm.tokenExpiry.Add(-tm.refreshMargin)) {
+		tm.logger.Debug("provider: token already refreshed by another goroutine")
 		return tm.token, nil
 	}
+
+	tm.logger.Info("provider: fetching new token from concourse")
 
 	// Fetch new token from Concourse
 	tokenResp, err := tm.fetchTokenFromConcourse(ctx)
 	if err != nil {
+		tm.logger.Error("provider: failed to fetch token", "error", err)
 		return "", err
 	}
 
 	tm.token = tokenResp.AccessToken
 	tm.tokenExpiry = time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
+
+	tm.logger.Info("provider: token refreshed successfully",
+		"expires_in", tokenResp.ExpiresIn)
 
 	return tm.token, nil
 }

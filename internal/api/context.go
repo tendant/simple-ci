@@ -6,13 +6,11 @@ import (
 	"github.com/lei/simple-ci/pkg/logger"
 )
 
-// contextKey is an unexported type for context keys to prevent collisions
-type contextKey string
-
+// Context key constants - using plain strings for cross-package compatibility
 const (
-	contextKeyRequestID  contextKey = "request_id"
-	contextKeyLogger     contextKey = "logger"
-	contextKeyAPIKeyName contextKey = "api_key_name"
+	contextKeyRequestID  = "request_id"
+	contextKeyLogger     = "logger"
+	contextKeyAPIKeyName = "api_key_name"
 )
 
 // GetRequestID retrieves the request ID from context
