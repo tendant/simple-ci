@@ -240,3 +240,50 @@ func (a *Adapter) Cancel(ctx context.Context, runRef provider.RunRef) error {
 		"build_id", ref.BuildID)
 	return nil
 }
+
+// ListPipelines lists all pipelines for the configured team
+func (a *Adapter) ListPipelines(ctx context.Context) ([]Pipeline, error) {
+	logger := a.getLogger(ctx)
+
+	logger.Debug("provider: listing pipelines",
+		"team", a.config.Team)
+
+	pipelines, err := a.client.ListPipelines(ctx, a.config.Team)
+	if err != nil {
+		logger.Error("provider: failed to list pipelines",
+			"team", a.config.Team,
+			"error", err)
+		return nil, fmt.Errorf("list pipelines: %w", err)
+	}
+
+	logger.Info("provider: pipelines listed",
+		"team", a.config.Team,
+		"count", len(pipelines))
+
+	return pipelines, nil
+}
+
+// ListJobs lists all jobs in a pipeline
+func (a *Adapter) ListJobs(ctx context.Context, pipeline string) ([]Job, error) {
+	logger := a.getLogger(ctx)
+
+	logger.Debug("provider: listing jobs",
+		"team", a.config.Team,
+		"pipeline", pipeline)
+
+	jobs, err := a.client.ListJobs(ctx, a.config.Team, pipeline)
+	if err != nil {
+		logger.Error("provider: failed to list jobs",
+			"team", a.config.Team,
+			"pipeline", pipeline,
+			"error", err)
+		return nil, fmt.Errorf("list jobs: %w", err)
+	}
+
+	logger.Info("provider: jobs listed",
+		"team", a.config.Team,
+		"pipeline", pipeline,
+		"count", len(jobs))
+
+	return jobs, nil
+}

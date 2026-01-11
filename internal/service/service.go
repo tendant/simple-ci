@@ -229,3 +229,49 @@ func (s *Service) parseRunRef(runID string) (provider.RunRef, error) {
 	// Format: team/pipeline/job/build_id
 	return concourse.ParseRunRef(runID)
 }
+
+// ListPipelines lists all pipelines from the provider
+func (s *Service) ListPipelines(ctx context.Context) ([]concourse.Pipeline, error) {
+	logger := s.getLogger(ctx)
+
+	logger.Debug("service: listing pipelines")
+
+	// Type-assert provider to Concourse adapter
+	adapter, ok := s.provider.(*concourse.Adapter)
+	if !ok {
+		logger.Error("service: provider is not concourse adapter")
+		return nil, fmt.Errorf("provider does not support pipeline listing")
+	}
+
+	pipelines, err := adapter.ListPipelines(ctx)
+	if err != nil {
+		logger.Error("service: failed to list pipelines", "error", err)
+		return nil, fmt.Errorf("list pipelines: %w", err)
+	}
+
+	logger.Info("service: pipelines listed", "count", len(pipelines))
+	return pipelines, nil
+}
+
+// ListPipelineJobs lists all jobs in a pipeline from the provider
+func (s *Service) ListPipelineJobs(ctx context.Context, pipeline string) ([]concourse.Job, error) {
+	logger := s.getLogger(ctx)
+
+	logger.Debug("service: listing jobs", "pipeline", pipeline)
+
+	// Type-assert provider to Concourse adapter
+	adapter, ok := s.provider.(*concourse.Adapter)
+	if !ok {
+		logger.Error("service: provider is not concourse adapter")
+		return nil, fmt.Errorf("provider does not support job listing")
+	}
+
+	jobs, err := adapter.ListJobs(ctx, pipeline)
+	if err != nil {
+		logger.Error("service: failed to list jobs", "pipeline", pipeline, "error", err)
+		return nil, fmt.Errorf("list jobs: %w", err)
+	}
+
+	logger.Info("service: jobs listed", "pipeline", pipeline, "count", len(jobs))
+	return jobs, nil
+}

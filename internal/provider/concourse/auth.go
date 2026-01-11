@@ -120,7 +120,7 @@ func (tm *TokenManager) fetchTokenFromConcourse(ctx context.Context) (*TokenResp
 	data.Set("grant_type", "password")
 	data.Set("username", tm.username)
 	data.Set("password", tm.password)
-	data.Set("scope", "openid")
+	data.Set("scope", "openid profile email federated:id groups")
 
 	req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, strings.NewReader(data.Encode()))
 	if err != nil {

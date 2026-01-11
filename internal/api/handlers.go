@@ -209,6 +209,55 @@ func respondError(w http.ResponseWriter, r *http.Request, status int, message st
 	})
 }
 
+// ListPipelines handles GET /v1/discovery/pipelines
+func (h *Handlers) ListPipelines(w http.ResponseWriter, r *http.Request) {
+	logger := GetLogger(r.Context())
+
+	if logger != nil {
+		logger.Debug("listing pipelines from provider")
+	}
+
+	pipelines, err := h.service.ListPipelines(r.Context())
+	if err != nil {
+		handleServiceError(w, r, err)
+		return
+	}
+
+	if logger != nil {
+		logger.Info("pipelines listed", "count", len(pipelines))
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"pipelines": pipelines,
+	})
+}
+
+// ListPipelineJobs handles GET /v1/discovery/pipelines/{pipeline}/jobs
+func (h *Handlers) ListPipelineJobs(w http.ResponseWriter, r *http.Request) {
+	logger := GetLogger(r.Context())
+	pipeline := chi.URLParam(r, "pipeline")
+
+	if logger != nil {
+		logger.Debug("listing jobs from provider", "pipeline", pipeline)
+	}
+
+	jobs, err := h.service.ListPipelineJobs(r.Context(), pipeline)
+	if err != nil {
+		handleServiceError(w, r, err)
+		return
+	}
+
+	if logger != nil {
+		logger.Info("jobs listed", "pipeline", pipeline, "count", len(jobs))
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"jobs": jobs,
+	})
+}
+
 // handleServiceError maps service errors to HTTP responses with detailed logging
 func handleServiceError(w http.ResponseWriter, r *http.Request, err error) {
 	logger := GetLogger(r.Context())

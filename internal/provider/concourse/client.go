@@ -31,6 +31,28 @@ type Build struct {
 	CreateTime int64  `json:"create_time"`
 }
 
+// Pipeline represents a Concourse pipeline
+type Pipeline struct {
+	Name         string `json:"name"`
+	TeamName     string `json:"team_name"`
+	Paused       bool   `json:"paused"`
+	Public       bool   `json:"public"`
+	Archived     bool   `json:"archived"`
+	LastUpdated  int64  `json:"last_updated"`
+}
+
+// Job represents a Concourse job
+type Job struct {
+	Name            string `json:"name"`
+	PipelineName    string `json:"pipeline_name"`
+	TeamName        string `json:"team_name"`
+	Paused          bool   `json:"paused"`
+	HasNewInputs    bool   `json:"has_new_inputs"`
+	FinishedBuild   *Build `json:"finished_build,omitempty"`
+	TransitionBuild *Build `json:"transition_build,omitempty"`
+	NextBuild       *Build `json:"next_build,omitempty"`
+}
+
 // NewClient creates a new Concourse API client
 func NewClient(baseURL string, tokenManager *TokenManager, log *logger.Logger) *Client {
 	return &Client{
@@ -228,4 +250,48 @@ func (c *Client) StreamBuildEvents(ctx context.Context, buildID int, writer io.W
 	}
 
 	return scanner.Err()
+}
+
+// ListPipelines lists all pipelines for a team
+func (c *Client) ListPipelines(ctx context.Context, team string) ([]Pipeline, error) {
+	path := fmt.Sprintf("/api/v1/teams/%s/pipelines", team)
+
+	resp, err := c.doRequest(ctx, "GET", path, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, parseError(resp)
+	}
+
+	var pipelines []Pipeline
+	if err := json.NewDecoder(resp.Body).Decode(&pipelines); err != nil {
+		return nil, fmt.Errorf("decode pipelines: %w", err)
+	}
+
+	return pipelines, nil
+}
+
+// ListJobs lists all jobs in a pipeline
+func (c *Client) ListJobs(ctx context.Context, team, pipeline string) ([]Job, error) {
+	path := fmt.Sprintf("/api/v1/teams/%s/pipelines/%s/jobs", team, pipeline)
+
+	resp, err := c.doRequest(ctx, "GET", path, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, parseError(resp)
+	}
+
+	var jobs []Job
+	if err := json.NewDecoder(resp.Body).Decode(&jobs); err != nil {
+		return nil, fmt.Errorf("decode jobs: %w", err)
+	}
+
+	return jobs, nil
 }

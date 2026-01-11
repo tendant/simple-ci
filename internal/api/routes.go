@@ -44,6 +44,10 @@ func NewRouter(handlers *Handlers, authMiddleware *AuthMiddleware, loggingMiddle
 		r.Get("/runs/{run_id}", handlers.GetRun)
 		r.Get("/runs/{run_id}/events", handlers.StreamEvents)
 		r.Post("/runs/{run_id}/cancel", handlers.CancelRun)
+
+		// Discovery - list pipelines and jobs from provider
+		r.Get("/discovery/pipelines", handlers.ListPipelines)
+		r.Get("/discovery/pipelines/{pipeline}/jobs", handlers.ListPipelineJobs)
 	})
 
 	return r
