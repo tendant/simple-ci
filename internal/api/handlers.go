@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -38,7 +39,12 @@ func (h *Handlers) ListJobs(w http.ResponseWriter, r *http.Request) {
 
 // TriggerRun handles POST /v1/jobs/{job_id}/runs
 func (h *Handlers) TriggerRun(w http.ResponseWriter, r *http.Request) {
+	logger := GetLogger(r.Context())
 	jobID := chi.URLParam(r, "job_id")
+
+	if logger != nil {
+		logger.Debug("triggering run", "job_id", jobID)
+	}
 
 	var req struct {
 		Parameters     map[string]interface{} `json:"parameters"`
@@ -46,14 +52,31 @@ func (h *Handlers) TriggerRun(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+		if logger != nil {
+			logger.Warn("invalid request body", "error", err)
+		}
+		respondError(w, r, http.StatusBadRequest, "invalid request body")
 		return
+	}
+
+	if logger != nil {
+		logger.Debug("decoded trigger request",
+			"job_id", jobID,
+			"has_parameters", len(req.Parameters) > 0,
+			"has_idempotency_key", req.IdempotencyKey != "")
 	}
 
 	run, err := h.service.TriggerRun(r.Context(), jobID, req.Parameters, req.IdempotencyKey)
 	if err != nil {
-		handleServiceError(w, err)
+		handleServiceError(w, r, err)
 		return
+	}
+
+	if logger != nil {
+		logger.Info("run triggered successfully",
+			"job_id", jobID,
+			"run_id", run.RunID,
+			"status", run.Status)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -65,12 +88,23 @@ func (h *Handlers) TriggerRun(w http.ResponseWriter, r *http.Request) {
 
 // GetRun handles GET /v1/runs/{run_id}
 func (h *Handlers) GetRun(w http.ResponseWriter, r *http.Request) {
+	logger := GetLogger(r.Context())
 	runID := chi.URLParam(r, "run_id")
+
+	if logger != nil {
+		logger.Debug("fetching run status", "run_id", runID)
+	}
 
 	run, err := h.service.GetRun(r.Context(), runID)
 	if err != nil {
-		handleServiceError(w, err)
+		handleServiceError(w, r, err)
 		return
+	}
+
+	if logger != nil {
+		logger.Debug("run status retrieved",
+			"run_id", runID,
+			"status", run.Status)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -81,7 +115,12 @@ func (h *Handlers) GetRun(w http.ResponseWriter, r *http.Request) {
 
 // StreamEvents handles GET /v1/runs/{run_id}/events
 func (h *Handlers) StreamEvents(w http.ResponseWriter, r *http.Request) {
+	logger := GetLogger(r.Context())
 	runID := chi.URLParam(r, "run_id")
+
+	if logger != nil {
+		logger.Info("starting event stream", "run_id", runID)
+	}
 
 	// Set SSE headers
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -91,69 +130,129 @@ func (h *Handlers) StreamEvents(w http.ResponseWriter, r *http.Request) {
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		respondError(w, http.StatusInternalServerError, "streaming not supported")
+		if logger != nil {
+			logger.Error("streaming not supported by response writer")
+		}
+		respondError(w, r, http.StatusInternalServerError, "streaming not supported")
 		return
 	}
+
+	// Send initial connection success event
+	requestID := GetRequestID(r.Context())
+	fmt.Fprintf(w, "event: connected\ndata: {\"request_id\":\"%s\"}\n\n", requestID)
+	flusher.Flush()
 
 	if err := h.service.StreamRunEvents(r.Context(), runID, w); err != nil {
-		// Error during streaming - client may have disconnected
-		// Log but don't write response (headers already sent)
+		// Cannot change headers after streaming starts, but MUST log
+		if logger != nil {
+			logger.Error("streaming error occurred",
+				"run_id", runID,
+				"error", err,
+				"error_type", fmt.Sprintf("%T", err))
+		}
+
+		// Send error event if possible (best effort)
+		fmt.Fprintf(w, "event: error\ndata: {\"message\":\"stream error\",\"request_id\":\"%s\"}\n\n", requestID)
+		flusher.Flush()
 		return
 	}
 
+	if logger != nil {
+		logger.Info("event stream completed successfully", "run_id", runID)
+	}
 	flusher.Flush()
 }
 
 // CancelRun handles POST /v1/runs/{run_id}/cancel
 func (h *Handlers) CancelRun(w http.ResponseWriter, r *http.Request) {
+	logger := GetLogger(r.Context())
 	runID := chi.URLParam(r, "run_id")
 
+	if logger != nil {
+		logger.Info("canceling run", "run_id", runID)
+	}
+
 	if err := h.service.CancelRun(r.Context(), runID); err != nil {
-		handleServiceError(w, err)
+		handleServiceError(w, r, err)
 		return
+	}
+
+	if logger != nil {
+		logger.Info("run canceled successfully", "run_id", runID)
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// respondError writes a JSON error response
-func respondError(w http.ResponseWriter, status int, message string) {
+// respondError writes a JSON error response with logging
+func respondError(w http.ResponseWriter, r *http.Request, status int, message string) {
+	logger := GetLogger(r.Context())
+	requestID := GetRequestID(r.Context())
+
+	// Log the error with full context
+	if logger != nil {
+		logger.Error("returning error response",
+			"status", status,
+			"message", message,
+			"request_id", requestID)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Request-ID", requestID)
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"error": map[string]interface{}{
-			"message": message,
-			"code":    status,
+			"message":    message,
+			"code":       status,
+			"request_id": requestID,
 		},
 	})
 }
 
-// handleServiceError maps service errors to HTTP responses
-func handleServiceError(w http.ResponseWriter, err error) {
+// handleServiceError maps service errors to HTTP responses with detailed logging
+func handleServiceError(w http.ResponseWriter, r *http.Request, err error) {
+	logger := GetLogger(r.Context())
+	requestID := GetRequestID(r.Context())
+
+	// Log original error with full details
+	if logger != nil {
+		logger.Error("service error occurred",
+			"error", err.Error(),
+			"error_type", fmt.Sprintf("%T", err),
+			"request_id", requestID)
+	}
+
 	switch {
 	case errors.Is(err, service.ErrJobNotFound):
-		respondError(w, http.StatusNotFound, "job not found")
+		respondError(w, r, http.StatusNotFound, "job not found")
 	case errors.Is(err, service.ErrRunNotFound):
-		respondError(w, http.StatusNotFound, "run not found")
+		respondError(w, r, http.StatusNotFound, "run not found")
 	case errors.Is(err, provider.ErrJobNotFound):
-		respondError(w, http.StatusNotFound, "job not found in provider")
+		respondError(w, r, http.StatusNotFound, "job not found in provider")
 	case errors.Is(err, provider.ErrRunNotFound):
-		respondError(w, http.StatusNotFound, "run not found in provider")
+		respondError(w, r, http.StatusNotFound, "run not found in provider")
 	case errors.Is(err, provider.ErrUnauthorized):
-		respondError(w, http.StatusUnauthorized, "provider authentication failed")
+		respondError(w, r, http.StatusUnauthorized, "provider authentication failed")
 	case errors.Is(err, provider.ErrProviderUnavailable):
-		respondError(w, http.StatusBadGateway, "provider temporarily unavailable")
+		respondError(w, r, http.StatusBadGateway, "provider temporarily unavailable")
 	default:
 		// Check if it's a ProviderError
 		var providerErr *provider.ProviderError
 		if errors.As(err, &providerErr) {
+			if logger != nil {
+				logger.Error("provider error details",
+					"provider_code", providerErr.Code,
+					"provider_message", providerErr.Message,
+					"underlying_error", providerErr.Err)
+			}
+
 			if providerErr.Code >= 400 && providerErr.Code < 500 {
-				respondError(w, providerErr.Code, providerErr.Message)
+				respondError(w, r, providerErr.Code, providerErr.Message)
 			} else {
-				respondError(w, http.StatusBadGateway, "provider error")
+				respondError(w, r, http.StatusBadGateway, "provider error")
 			}
 		} else {
-			respondError(w, http.StatusInternalServerError, "internal server error")
+			respondError(w, r, http.StatusInternalServerError, "internal server error")
 		}
 	}
 }

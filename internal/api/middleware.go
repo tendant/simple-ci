@@ -39,7 +39,7 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 			if logger != nil {
 				logger.Warn("authentication failed: missing authorization header")
 			}
-			respondError(w, http.StatusUnauthorized, "missing authorization header")
+			respondError(w, r, http.StatusUnauthorized, "missing authorization header")
 			return
 		}
 
@@ -49,7 +49,7 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 			if logger != nil {
 				logger.Warn("authentication failed: invalid authorization format")
 			}
-			respondError(w, http.StatusUnauthorized, "invalid authorization format, expected 'Bearer <token>'")
+			respondError(w, r, http.StatusUnauthorized, "invalid authorization format, expected 'Bearer <token>'")
 			return
 		}
 
@@ -63,7 +63,7 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 				}
 				logger.Warn("authentication failed: invalid api key", "key_prefix", keyPrefix)
 			}
-			respondError(w, http.StatusUnauthorized, "invalid api key")
+			respondError(w, r, http.StatusUnauthorized, "invalid api key")
 			return
 		}
 
