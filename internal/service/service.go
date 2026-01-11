@@ -320,3 +320,47 @@ func (s *Service) GetBuildDetails(ctx context.Context, buildID int) (*concourse.
 	logger.Info("service: build details retrieved", "build_id", buildID, "status", build.Status)
 	return build, plan, nil
 }
+
+// ListTeams lists all accessible teams from the provider
+func (s *Service) ListTeams(ctx context.Context) ([]concourse.Team, error) {
+	logger := s.getLogger(ctx)
+
+	logger.Debug("service: listing teams")
+
+	adapter, ok := s.provider.(*concourse.Adapter)
+	if !ok {
+		logger.Error("service: provider is not concourse adapter")
+		return nil, fmt.Errorf("provider does not support team listing")
+	}
+
+	teams, err := adapter.ListTeams(ctx)
+	if err != nil {
+		logger.Error("service: failed to list teams", "error", err)
+		return nil, fmt.Errorf("list teams: %w", err)
+	}
+
+	logger.Info("service: teams listed", "count", len(teams))
+	return teams, nil
+}
+
+// ListTeamPipelines lists pipelines for a specific team
+func (s *Service) ListTeamPipelines(ctx context.Context, team string) ([]concourse.Pipeline, error) {
+	logger := s.getLogger(ctx)
+
+	logger.Debug("service: listing team pipelines", "team", team)
+
+	adapter, ok := s.provider.(*concourse.Adapter)
+	if !ok {
+		logger.Error("service: provider is not concourse adapter")
+		return nil, fmt.Errorf("provider does not support team pipeline listing")
+	}
+
+	pipelines, err := adapter.ListTeamPipelines(ctx, team)
+	if err != nil {
+		logger.Error("service: failed to list team pipelines", "team", team, "error", err)
+		return nil, fmt.Errorf("list team pipelines: %w", err)
+	}
+
+	logger.Info("service: team pipelines listed", "team", team, "count", len(pipelines))
+	return pipelines, nil
+}

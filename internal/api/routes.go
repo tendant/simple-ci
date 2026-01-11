@@ -48,7 +48,9 @@ func NewRouter(handlers *Handlers, authMiddleware *AuthMiddleware, loggingMiddle
 		// Builds - detailed build information
 		r.Get("/builds/{build_id}", handlers.GetBuildDetails)
 
-		// Discovery - list pipelines and jobs from provider
+		// Discovery - list teams, pipelines and jobs from provider
+		r.Get("/discovery/teams", handlers.ListTeams)
+		r.Get("/discovery/teams/{team}/pipelines", handlers.ListTeamPipelines)
 		r.Get("/discovery/pipelines", handlers.ListPipelines)
 		r.Get("/discovery/pipelines/{pipeline}/jobs", handlers.ListPipelineJobs)
 		r.Get("/discovery/pipelines/{pipeline}/jobs/{job}/builds", handlers.ListJobBuilds)

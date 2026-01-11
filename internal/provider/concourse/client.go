@@ -53,6 +53,12 @@ type Job struct {
 	NextBuild       *Build `json:"next_build,omitempty"`
 }
 
+// Team represents a Concourse team
+type Team struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
 // NewClient creates a new Concourse API client
 func NewClient(baseURL string, tokenManager *TokenManager, log *logger.Logger) *Client {
 	return &Client{
@@ -341,4 +347,26 @@ func (c *Client) GetBuildPlan(ctx context.Context, buildID int) (map[string]inte
 	}
 
 	return plan, nil
+}
+
+// ListTeams lists all teams
+func (c *Client) ListTeams(ctx context.Context) ([]Team, error) {
+	path := "/api/v1/teams"
+
+	resp, err := c.doRequest(ctx, "GET", path, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, parseError(resp)
+	}
+
+	var teams []Team
+	if err := json.NewDecoder(resp.Body).Decode(&teams); err != nil {
+		return nil, fmt.Errorf("decode teams: %w", err)
+	}
+
+	return teams, nil
 }

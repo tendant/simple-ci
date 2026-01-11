@@ -342,3 +342,35 @@ func (a *Adapter) GetBuildDetails(ctx context.Context, buildID int) (*Build, map
 
 	return build, plan, nil
 }
+
+// ListTeams lists all accessible teams
+func (a *Adapter) ListTeams(ctx context.Context) ([]Team, error) {
+	logger := a.getLogger(ctx)
+
+	logger.Debug("provider: listing teams")
+
+	teams, err := a.client.ListTeams(ctx)
+	if err != nil {
+		logger.Error("provider: failed to list teams", "error", err)
+		return nil, fmt.Errorf("list teams: %w", err)
+	}
+
+	logger.Info("provider: teams listed", "count", len(teams))
+	return teams, nil
+}
+
+// ListTeamPipelines lists pipelines for a specific team
+func (a *Adapter) ListTeamPipelines(ctx context.Context, team string) ([]Pipeline, error) {
+	logger := a.getLogger(ctx)
+
+	logger.Debug("provider: listing team pipelines", "team", team)
+
+	pipelines, err := a.client.ListPipelines(ctx, team)
+	if err != nil {
+		logger.Error("provider: failed to list team pipelines", "team", team, "error", err)
+		return nil, fmt.Errorf("list team pipelines: %w", err)
+	}
+
+	logger.Info("provider: team pipelines listed", "team", team, "count", len(pipelines))
+	return pipelines, nil
+}
