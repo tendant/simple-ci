@@ -9,14 +9,14 @@ import (
 )
 
 // NewRouter creates and configures the HTTP router
-func NewRouter(handlers *Handlers, authMiddleware *AuthMiddleware) *chi.Mux {
+func NewRouter(handlers *Handlers, authMiddleware *AuthMiddleware, loggingMiddleware *LoggingMiddleware) *chi.Mux {
 	r := chi.NewRouter()
 
-	// Global middleware
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+	// Global middleware - ORDER MATTERS!
+	r.Use(middleware.RequestID)      // Generate request ID first
+	r.Use(middleware.RealIP)         // Extract real IP
+	r.Use(loggingMiddleware.Handler) // Add logger to context with request ID
+	r.Use(middleware.Recoverer)      // Panic recovery
 	r.Use(middleware.Timeout(60 * time.Second))
 
 	// CORS configuration
@@ -24,7 +24,7 @@ func NewRouter(handlers *Handlers, authMiddleware *AuthMiddleware) *chi.Mux {
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
-		ExposedHeaders:   []string{"Link"},
+		ExposedHeaders:   []string{"Link", "X-Request-ID"}, // Expose request ID
 		AllowCredentials: false,
 		MaxAge:           300,
 	}))

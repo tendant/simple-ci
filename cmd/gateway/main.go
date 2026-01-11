@@ -66,7 +66,8 @@ func run() error {
 	// Initialize API layer
 	handlers := api.NewHandlers(svc)
 	authMiddleware := api.NewAuthMiddleware(cfg.Auth.APIKeys)
-	router := api.NewRouter(handlers, authMiddleware)
+	loggingMiddleware := api.NewLoggingMiddleware(appLogger)
+	router := api.NewRouter(handlers, authMiddleware, loggingMiddleware)
 
 	// Create HTTP server
 	srv := &http.Server{
