@@ -43,7 +43,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("load jobs: %w", err)
 	}
-	appLogger.Infow("loaded jobs", "count", len(jobs))
+	appLogger.Info("loaded jobs", "count", len(jobs))
 
 	// Initialize Concourse provider
 	providerCfg := &concourse.Config{
@@ -58,7 +58,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("initialize provider: %w", err)
 	}
-	appLogger.Infow("initialized concourse provider", "url", cfg.Concourse.URL, "team", cfg.Concourse.Team)
+	appLogger.Info("initialized concourse provider", "url", cfg.Concourse.URL, "team", cfg.Concourse.Team)
 
 	// Initialize service layer
 	svc := service.NewService(jobs, provider)
@@ -79,7 +79,7 @@ func run() error {
 	// Start server in goroutine
 	serverErrors := make(chan error, 1)
 	go func() {
-		appLogger.Infow("starting http server", "port", cfg.Server.Port)
+		appLogger.Info("starting http server", "port", cfg.Server.Port)
 		serverErrors <- srv.ListenAndServe()
 	}()
 
@@ -92,7 +92,7 @@ func run() error {
 		return fmt.Errorf("server error: %w", err)
 
 	case sig := <-shutdown:
-		appLogger.Infow("shutdown signal received", "signal", sig.String())
+		appLogger.Info("shutdown signal received", "signal", sig.String())
 
 		// Graceful shutdown with 30s timeout
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
