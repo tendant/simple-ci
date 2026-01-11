@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/lei/simple-ci/internal/models"
 	"github.com/lei/simple-ci/internal/provider"
@@ -363,4 +364,55 @@ func (s *Service) ListTeamPipelines(ctx context.Context, team string) ([]concour
 
 	logger.Info("service: team pipelines listed", "team", team, "count", len(pipelines))
 	return pipelines, nil
+}
+
+// HealthCheck performs health checks on the service and provider
+func (s *Service) HealthCheck(ctx context.Context) map[string]interface{} {
+	logger := s.getLogger(ctx)
+
+	health := map[string]interface{}{
+		"status":  "healthy",
+		"service": "simple-ci-gateway",
+		"checks":  make(map[string]interface{}),
+	}
+
+	checks := health["checks"].(map[string]interface{})
+
+	// Check job configuration
+	checks["job_config"] = map[string]interface{}{
+		"status": "healthy",
+		"count":  len(s.jobs),
+	}
+
+	// Check provider connectivity
+	adapter, ok := s.provider.(*concourse.Adapter)
+	if !ok {
+		checks["provider"] = map[string]interface{}{
+			"status": "unhealthy",
+			"error":  "provider is not concourse adapter",
+		}
+		health["status"] = "unhealthy"
+		return health
+	}
+
+	// Create short timeout context for health check
+	healthCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	if err := adapter.HealthCheck(healthCtx); err != nil {
+		logger.Warn("provider health check failed", "error", err)
+		checks["provider"] = map[string]interface{}{
+			"status": "unhealthy",
+			"error":  err.Error(),
+		}
+		health["status"] = "degraded"
+	} else {
+		checks["provider"] = map[string]interface{}{
+			"status":   "healthy",
+			"provider": "concourse",
+		}
+	}
+
+	logger.Debug("health check completed", "status", health["status"])
+	return health
 }

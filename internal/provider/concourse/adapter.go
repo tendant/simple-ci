@@ -374,3 +374,21 @@ func (a *Adapter) ListTeamPipelines(ctx context.Context, team string) ([]Pipelin
 	logger.Info("provider: team pipelines listed", "team", team, "count", len(pipelines))
 	return pipelines, nil
 }
+
+// HealthCheck validates connectivity and authentication with Concourse
+func (a *Adapter) HealthCheck(ctx context.Context) error {
+	logger := a.getLogger(ctx)
+
+	logger.Debug("provider: performing health check")
+
+	// Try to list teams as a health check
+	// This validates both connectivity and authentication
+	_, err := a.client.ListTeams(ctx)
+	if err != nil {
+		logger.Error("provider: health check failed", "error", err)
+		return fmt.Errorf("concourse health check failed: %w", err)
+	}
+
+	logger.Debug("provider: health check passed")
+	return nil
+}

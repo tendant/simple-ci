@@ -24,8 +24,29 @@ func NewHandlers(svc *service.Service) *Handlers {
 
 // Health handles health check requests
 func (h *Handlers) Health(w http.ResponseWriter, r *http.Request) {
+	// Check if detailed health is requested
+	detailed := r.URL.Query().Get("detailed") == "true"
+
+	if !detailed {
+		// Simple health check - just return OK
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		return
+	}
+
+	// Detailed health check
+	health := h.service.HealthCheck(r.Context())
+
+	status := http.StatusOK
+	if health["status"] == "degraded" {
+		status = http.StatusServiceUnavailable
+	} else if health["status"] == "unhealthy" {
+		status = http.StatusServiceUnavailable
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(health)
 }
 
 // ListJobs handles GET /v1/jobs
