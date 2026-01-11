@@ -7,8 +7,11 @@ A stateless, provider-agnostic CI Gateway that exposes a clean REST API backed b
 - **Stateless Architecture**: No database required, fully in-memory operation
 - **Provider Abstraction**: Clean interface for supporting multiple CI systems
 - **Simple API**: RESTful endpoints for jobs, runs, status, and logs
+- **Discovery API**: Explore teams, pipelines, jobs, and builds with filtering
+- **Build Information**: Access build history, details, and execution plans
 - **API Key Authentication**: Secure access control with Bearer tokens
 - **SSE Streaming**: Real-time build logs via Server-Sent Events
+- **Health Checks**: Simple and detailed health monitoring with provider validation
 - **Concourse Integration**: Full support for Concourse CI pipelines
 
 ## Architecture
@@ -117,14 +120,27 @@ The gateway will start on port 8081 (configurable via SERVER_PORT in .env).
 
 ```bash
 GET /health
+GET /health?detailed=true
 ```
 
 No authentication required.
 
-**Response:**
+**Simple Response:**
 ```json
 {
   "status": "ok"
+}
+```
+
+**Detailed Response:**
+```json
+{
+  "status": "healthy",
+  "service": "simple-ci-gateway",
+  "checks": {
+    "job_config": {"status": "healthy", "count": 2},
+    "provider": {"status": "healthy", "provider": "concourse"}
+  }
 }
 ```
 
@@ -285,6 +301,150 @@ curl -X POST \
 HTTP 204 No Content
 ```
 
+### Discovery API
+
+Explore Concourse teams, pipelines, jobs, and builds.
+
+#### List Teams
+
+```bash
+GET /v1/discovery/teams
+```
+
+**Response:**
+```json
+{
+  "teams": [
+    {"id": 1, "name": "main"}
+  ]
+}
+```
+
+#### List Team Pipelines
+
+```bash
+GET /v1/discovery/teams/{team}/pipelines
+```
+
+**Response:**
+```json
+{
+  "pipelines": [
+    {
+      "name": "my-pipeline",
+      "team_name": "main",
+      "paused": false,
+      "archived": false
+    }
+  ]
+}
+```
+
+#### List Pipelines
+
+```bash
+GET /v1/discovery/pipelines
+GET /v1/discovery/pipelines?search=my&paused=false&archived=false
+```
+
+**Query Parameters:**
+- `search` - Filter by name (case-insensitive)
+- `paused` - Filter by paused status (true/false)
+- `archived` - Filter by archived status (true/false)
+
+**Response:**
+```json
+{
+  "pipelines": [
+    {
+      "name": "my-pipeline",
+      "team_name": "main",
+      "paused": false,
+      "public": false,
+      "archived": false
+    }
+  ]
+}
+```
+
+#### List Jobs
+
+```bash
+GET /v1/discovery/pipelines/{pipeline}/jobs
+GET /v1/discovery/pipelines/{pipeline}/jobs?search=build&paused=false
+```
+
+**Query Parameters:**
+- `search` - Filter by name (case-insensitive)
+- `paused` - Filter by paused status (true/false)
+
+**Response:**
+```json
+{
+  "jobs": [
+    {
+      "name": "build-job",
+      "pipeline_name": "my-pipeline",
+      "team_name": "main",
+      "paused": false
+    }
+  ]
+}
+```
+
+#### List Job Builds
+
+```bash
+GET /v1/discovery/pipelines/{pipeline}/jobs/{job}/builds
+GET /v1/discovery/pipelines/{pipeline}/jobs/{job}/builds?limit=10
+```
+
+**Query Parameters:**
+- `limit` - Number of builds to return (default: 20, max: 100)
+
+**Response:**
+```json
+{
+  "builds": [
+    {
+      "id": 123,
+      "name": "5",
+      "status": "succeeded",
+      "start_time": 1736614386,
+      "end_time": 1736614397
+    }
+  ]
+}
+```
+
+#### Get Build Details
+
+```bash
+GET /v1/builds/{build_id}
+```
+
+**Response:**
+```json
+{
+  "build": {
+    "id": 123,
+    "name": "5",
+    "status": "succeeded",
+    "start_time": 1736614386,
+    "end_time": 1736614397
+  },
+  "plan": {
+    "plan": {
+      "do": [
+        {"get": {"name": "repo", "resource": "git-repo"}},
+        {"task": {"name": "build"}},
+        {"task": {"name": "test"}}
+      ]
+    }
+  }
+}
+```
+
 ## Configuration
 
 ### Gateway Configuration (`.env`)
@@ -404,6 +564,7 @@ simple-ci/
 ├── internal/
 │   ├── api/                           # HTTP API layer
 │   │   ├── handlers.go                # Request handlers
+│   │   ├── filters.go                 # Query filters
 │   │   ├── middleware.go              # Auth middleware
 │   │   └── routes.go                  # Router setup
 │   ├── config/                        # Configuration
@@ -465,11 +626,10 @@ Error responses include a JSON body:
 
 - Dynamic job loading (reload without restart)
 - Additional providers (GitHub Actions, Buildkite)
-- Multi-tenancy support
 - Prometheus metrics
 - Webhook notifications
 - Artifacts API
-- Run history caching
+- Pagination for large result sets
 
 ## License
 
