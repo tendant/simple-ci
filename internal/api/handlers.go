@@ -214,8 +214,13 @@ func respondError(w http.ResponseWriter, r *http.Request, status int, message st
 func (h *Handlers) ListPipelines(w http.ResponseWriter, r *http.Request) {
 	logger := GetLogger(r.Context())
 
+	// Parse query parameters
+	search := r.URL.Query().Get("search")
+	paused := parseBoolParam(r.URL.Query().Get("paused"))
+	archived := parseBoolParam(r.URL.Query().Get("archived"))
+
 	if logger != nil {
-		logger.Debug("listing pipelines from provider")
+		logger.Debug("listing pipelines from provider", "search", search, "paused", paused, "archived", archived)
 	}
 
 	pipelines, err := h.service.ListPipelines(r.Context())
@@ -223,6 +228,9 @@ func (h *Handlers) ListPipelines(w http.ResponseWriter, r *http.Request) {
 		handleServiceError(w, r, err)
 		return
 	}
+
+	// Apply filters
+	pipelines = FilterPipelines(pipelines, search, paused, archived)
 
 	if logger != nil {
 		logger.Info("pipelines listed", "count", len(pipelines))
@@ -239,8 +247,12 @@ func (h *Handlers) ListPipelineJobs(w http.ResponseWriter, r *http.Request) {
 	logger := GetLogger(r.Context())
 	pipeline := chi.URLParam(r, "pipeline")
 
+	// Parse query parameters
+	search := r.URL.Query().Get("search")
+	paused := parseBoolParam(r.URL.Query().Get("paused"))
+
 	if logger != nil {
-		logger.Debug("listing jobs from provider", "pipeline", pipeline)
+		logger.Debug("listing jobs from provider", "pipeline", pipeline, "search", search, "paused", paused)
 	}
 
 	jobs, err := h.service.ListPipelineJobs(r.Context(), pipeline)
@@ -248,6 +260,9 @@ func (h *Handlers) ListPipelineJobs(w http.ResponseWriter, r *http.Request) {
 		handleServiceError(w, r, err)
 		return
 	}
+
+	// Apply filters
+	jobs = FilterJobs(jobs, search, paused)
 
 	if logger != nil {
 		logger.Info("jobs listed", "pipeline", pipeline, "count", len(jobs))
