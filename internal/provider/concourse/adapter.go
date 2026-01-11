@@ -287,3 +287,58 @@ func (a *Adapter) ListJobs(ctx context.Context, pipeline string) ([]Job, error) 
 
 	return jobs, nil
 }
+
+// ListJobBuilds lists recent builds for a job
+func (a *Adapter) ListJobBuilds(ctx context.Context, pipeline, job string, limit int) ([]Build, error) {
+	logger := a.getLogger(ctx)
+
+	logger.Debug("provider: listing job builds",
+		"team", a.config.Team,
+		"pipeline", pipeline,
+		"job", job,
+		"limit", limit)
+
+	builds, err := a.client.ListBuilds(ctx, a.config.Team, pipeline, job, limit)
+	if err != nil {
+		logger.Error("provider: failed to list job builds",
+			"team", a.config.Team,
+			"pipeline", pipeline,
+			"job", job,
+			"error", err)
+		return nil, fmt.Errorf("list job builds: %w", err)
+	}
+
+	logger.Info("provider: job builds listed",
+		"team", a.config.Team,
+		"pipeline", pipeline,
+		"job", job,
+		"count", len(builds))
+
+	return builds, nil
+}
+
+// GetBuildDetails retrieves detailed build information
+func (a *Adapter) GetBuildDetails(ctx context.Context, buildID int) (*Build, map[string]interface{}, error) {
+	logger := a.getLogger(ctx)
+
+	logger.Debug("provider: getting build details", "build_id", buildID)
+
+	// Get build info
+	build, err := a.client.GetBuild(ctx, buildID)
+	if err != nil {
+		logger.Error("provider: failed to get build", "build_id", buildID, "error", err)
+		return nil, nil, fmt.Errorf("get build: %w", err)
+	}
+
+	// Get build plan
+	plan, err := a.client.GetBuildPlan(ctx, buildID)
+	if err != nil {
+		logger.Warn("provider: failed to get build plan", "build_id", buildID, "error", err)
+		// Don't fail if plan is unavailable
+		plan = nil
+	}
+
+	logger.Info("provider: build details retrieved", "build_id", buildID, "status", build.Status)
+
+	return build, plan, nil
+}

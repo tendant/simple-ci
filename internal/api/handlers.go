@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/lei/simple-ci/internal/provider"
@@ -255,6 +256,78 @@ func (h *Handlers) ListPipelineJobs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"jobs": jobs,
+	})
+}
+
+// GetBuildDetails handles GET /v1/builds/{build_id}
+func (h *Handlers) GetBuildDetails(w http.ResponseWriter, r *http.Request) {
+	logger := GetLogger(r.Context())
+	buildIDStr := chi.URLParam(r, "build_id")
+
+	buildID, err := strconv.Atoi(buildIDStr)
+	if err != nil {
+		if logger != nil {
+			logger.Warn("invalid build_id", "build_id", buildIDStr)
+		}
+		respondError(w, r, http.StatusBadRequest, "invalid build_id")
+		return
+	}
+
+	if logger != nil {
+		logger.Debug("getting build details", "build_id", buildID)
+	}
+
+	build, plan, err := h.service.GetBuildDetails(r.Context(), buildID)
+	if err != nil {
+		handleServiceError(w, r, err)
+		return
+	}
+
+	if logger != nil {
+		logger.Info("build details retrieved", "build_id", buildID, "status", build.Status)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"build": build,
+		"plan":  plan,
+	})
+}
+
+// ListJobBuilds handles GET /v1/discovery/pipelines/{pipeline}/jobs/{job}/builds
+func (h *Handlers) ListJobBuilds(w http.ResponseWriter, r *http.Request) {
+	logger := GetLogger(r.Context())
+	pipeline := chi.URLParam(r, "pipeline")
+	job := chi.URLParam(r, "job")
+
+	// Parse optional limit parameter
+	limit := 20 // default
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+			if limit > 100 {
+				limit = 100 // max limit
+			}
+		}
+	}
+
+	if logger != nil {
+		logger.Debug("listing job builds", "pipeline", pipeline, "job", job, "limit", limit)
+	}
+
+	builds, err := h.service.ListJobBuilds(r.Context(), pipeline, job, limit)
+	if err != nil {
+		handleServiceError(w, r, err)
+		return
+	}
+
+	if logger != nil {
+		logger.Info("job builds listed", "pipeline", pipeline, "job", job, "count", len(builds))
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"builds": builds,
 	})
 }
 

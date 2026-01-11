@@ -275,3 +275,48 @@ func (s *Service) ListPipelineJobs(ctx context.Context, pipeline string) ([]conc
 	logger.Info("service: jobs listed", "pipeline", pipeline, "count", len(jobs))
 	return jobs, nil
 }
+
+// ListJobBuilds lists recent builds for a job
+func (s *Service) ListJobBuilds(ctx context.Context, pipeline, job string, limit int) ([]concourse.Build, error) {
+	logger := s.getLogger(ctx)
+
+	logger.Debug("service: listing job builds", "pipeline", pipeline, "job", job, "limit", limit)
+
+	// Type-assert provider to Concourse adapter
+	adapter, ok := s.provider.(*concourse.Adapter)
+	if !ok {
+		logger.Error("service: provider is not concourse adapter")
+		return nil, fmt.Errorf("provider does not support build listing")
+	}
+
+	builds, err := adapter.ListJobBuilds(ctx, pipeline, job, limit)
+	if err != nil {
+		logger.Error("service: failed to list job builds", "pipeline", pipeline, "job", job, "error", err)
+		return nil, fmt.Errorf("list job builds: %w", err)
+	}
+
+	logger.Info("service: job builds listed", "pipeline", pipeline, "job", job, "count", len(builds))
+	return builds, nil
+}
+
+// GetBuildDetails retrieves detailed information about a build
+func (s *Service) GetBuildDetails(ctx context.Context, buildID int) (*concourse.Build, map[string]interface{}, error) {
+	logger := s.getLogger(ctx)
+
+	logger.Debug("service: getting build details", "build_id", buildID)
+
+	adapter, ok := s.provider.(*concourse.Adapter)
+	if !ok {
+		logger.Error("service: provider is not concourse adapter")
+		return nil, nil, fmt.Errorf("provider does not support build details")
+	}
+
+	build, plan, err := adapter.GetBuildDetails(ctx, buildID)
+	if err != nil {
+		logger.Error("service: failed to get build details", "build_id", buildID, "error", err)
+		return nil, nil, fmt.Errorf("get build details: %w", err)
+	}
+
+	logger.Info("service: build details retrieved", "build_id", buildID, "status", build.Status)
+	return build, plan, nil
+}

@@ -295,3 +295,50 @@ func (c *Client) ListJobs(ctx context.Context, team, pipeline string) ([]Job, er
 
 	return jobs, nil
 }
+
+// ListBuilds lists builds for a job
+func (c *Client) ListBuilds(ctx context.Context, team, pipeline, job string, limit int) ([]Build, error) {
+	path := fmt.Sprintf("/api/v1/teams/%s/pipelines/%s/jobs/%s/builds", team, pipeline, job)
+	if limit > 0 {
+		path = fmt.Sprintf("%s?limit=%d", path, limit)
+	}
+
+	resp, err := c.doRequest(ctx, "GET", path, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, parseError(resp)
+	}
+
+	var builds []Build
+	if err := json.NewDecoder(resp.Body).Decode(&builds); err != nil {
+		return nil, fmt.Errorf("decode builds: %w", err)
+	}
+
+	return builds, nil
+}
+
+// GetBuildPlan retrieves the build plan (steps) for a build
+func (c *Client) GetBuildPlan(ctx context.Context, buildID int) (map[string]interface{}, error) {
+	path := fmt.Sprintf("/api/v1/builds/%d/plan", buildID)
+
+	resp, err := c.doRequest(ctx, "GET", path, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, parseError(resp)
+	}
+
+	var plan map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&plan); err != nil {
+		return nil, fmt.Errorf("decode build plan: %w", err)
+	}
+
+	return plan, nil
+}
