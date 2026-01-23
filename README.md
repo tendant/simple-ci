@@ -2,6 +2,8 @@
 
 A stateless, provider-agnostic CI Gateway that exposes a clean REST API backed by Concourse CI.
 
+**Use as a standalone service or embed as a library in your Go applications.**
+
 ## Features
 
 - **Stateless Architecture**: No database required, fully in-memory operation
@@ -44,16 +46,45 @@ A stateless, provider-agnostic CI Gateway that exposes a clean REST API backed b
 
 ## Quick Start
 
-### Prerequisites
+### Using as a Library
+
+Add to your Go project:
+
+```bash
+go get github.com/lei/simple-ci
+```
+
+```go
+import "github.com/lei/simple-ci/pkg/gateway"
+
+gw, err := gateway.NewFromEnv("configs/jobs.yaml")
+if err != nil {
+    log.Fatal(err)
+}
+
+ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+defer cancel()
+
+if err := gw.Start(ctx); err != nil {
+    log.Fatal(err)
+}
+```
+
+**See [LIBRARY.md](./LIBRARY.md) for complete library documentation and examples.**
+
+### Using as a Standalone Service
+
+#### Prerequisites
 
 - Go 1.23+
 - Running Concourse CI instance
 - Concourse pipelines and jobs configured
 
-### Installation
+#### Installation
 
-1. Clone the repository:
+1. Clone the repository and navigate to it:
 ```bash
+git clone https://github.com/lei/simple-ci.git
 cd simple-ci
 ```
 
@@ -621,6 +652,22 @@ Error responses include a JSON body:
 - **Production**: Use environment variables for sensitive values (never commit `.env` to version control)
 - **HTTPS**: Deploy behind a reverse proxy (nginx, Caddy) with TLS
 - **Token Management**: Use CONCOURSE_BEARER_TOKEN for pre-configured tokens or automated refresh scripts
+
+## Library Usage
+
+This gateway can be embedded in your Go applications. See [LIBRARY.md](./LIBRARY.md) for:
+
+- **Integration patterns** - Standalone, embedded, or programmatic access
+- **Configuration reference** - All configuration options explained
+- **Service layer API** - Direct programmatic control
+- **Examples** - Working code for common use cases
+
+Quick examples:
+
+- **[Basic](./examples/basic)** - Standalone gateway
+- **[Embedded](./examples/embedded)** - Integrate with existing HTTP server
+- **[Programmatic](./examples/programmatic)** - Direct service access
+- **[Environment-based](./examples/env-based)** - Use .env configuration
 
 ## Future Enhancements
 
